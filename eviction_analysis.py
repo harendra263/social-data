@@ -39,9 +39,10 @@ def eviction_UI():
                         ['Single County', 'Multiple Counties', 'State', 'National'], 1)
     metro_areas, locations = queries.load_distributions()
 
-    if task == 'Single County' or task == '':
-        res = st.text_input('Enter the county and state (ie: Jefferson County, Colorado):')
-        if res:
+    if task in ['Single County', '']:
+        if res := st.text_input(
+            'Enter the county and state (ie: Jefferson County, Colorado):'
+        ):
             res = res.strip().split(',')
             county = res[0].strip()
             state = res[1].strip()
@@ -82,8 +83,7 @@ def eviction_UI():
         county_list = queries.all_counties_query()
         county_list = county_list[county_list['state_name'] == state]['county_name'].to_list()
         counties = st.multiselect('Please specify one or more counties', county_list)
-        counties = [_.strip().lower() for _ in counties]
-        if len(counties) > 0:
+        if counties := [_.strip().lower() for _ in counties]:
             df = queries.get_county_data(state, counties)
 
             if st.checkbox('Show raw data'):
@@ -164,7 +164,11 @@ def eviction_UI():
         if st.checkbox('Show raw data'):
             st.subheader('Raw Data')
             st.dataframe(natl_df)
-            st.download_button('Download raw data', utils.to_excel(natl_df), file_name=f'national_data.xlsx')
+            st.download_button(
+                'Download raw data',
+                utils.to_excel(natl_df),
+                file_name='national_data.xlsx',
+            )
         with st.expander('Cost to avoid evictions'):
             st.write("""
                     The cost to avoid evictions is defined as the cost to a municipality or other entity if it was to pay 
@@ -183,27 +187,29 @@ def eviction_UI():
 
         if st.checkbox('Do cost to avoid eviction analysis?'):
             evictions_cost_df = cost_of_evictions(natl_df, metro_areas, locations)
-            st.download_button('Download cost data', utils.to_excel(evictions_cost_df),
-                               file_name=f'national_cost_data.xlsx')
+            st.download_button(
+                'Download cost data',
+                utils.to_excel(evictions_cost_df),
+                file_name='national_cost_data.xlsx',
+            )
 
         ranks = relative_risk_ranking(natl_df, 'National')
         eviction_visualizations(ranks, 'National')
 
 
 def eviction_visualizations(df: pd.DataFrame, state: str = None):
-    if state:
-        temp = df.copy()
-        temp.reset_index(inplace=True)
-        counties = temp['County Name'].to_list()
-        if state.lower() != 'national':
-            geo_df = queries.get_county_geoms(counties, state)
-            visualization.make_map(geo_df, temp, 'Relative Risk')
-        else:
-            frames = []
-            for s in STATES:
-                frames.append(queries.get_county_geoms(counties, s))
-            geo_df = pd.concat(frames)
-            visualization.make_map(geo_df, temp, 'Relative Risk')
+    if not state:
+        return
+    temp = df.copy()
+    temp.reset_index(inplace=True)
+    counties = temp['County Name'].to_list()
+    if state.lower() != 'national':
+        geo_df = queries.get_county_geoms(counties, state)
+    else:
+        frames = [queries.get_county_geoms(counties, s) for s in STATES]
+        geo_df = pd.concat(frames)
+
+    visualization.make_map(geo_df, temp, 'Relative Risk')
 
 
 def relative_risk_ranking(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -224,9 +230,9 @@ def relative_risk_ranking(df: pd.DataFrame, label: str) -> pd.DataFrame:
                                           "Vacant Units",
                                           "Renter Occupied Units",
                                           "Non-White Population (%)"]) + ['Total Population']
-    ranks = analysis.rank_counties(df[columns_to_consider], label + '_selected_counties').sort_values(
-        by='Relative Risk',
-        ascending=False)
+    ranks = analysis.rank_counties(
+        df[columns_to_consider], f'{label}_selected_counties'
+    ).sort_values(by='Relative Risk', ascending=False)
     ranks['county_id'] = df['county_id']
     ranks['state_id'] = df['state_id']
     st.write('Higher values correspond to more relative risk. Values can be between 0 and 1.')
@@ -255,7 +261,7 @@ def cost_of_evictions(df: pd.DataFrame, metro_areas, locations):
 
     pct_burdened = st.slider('Percent of Burdened Population to Support', 0, 100, value=50, step=1)
 
-    if rent_type == '' or rent_type == 'Fair Market':
+    if rent_type in ['', 'Fair Market']:
         df = analysis.calculate_cost_estimate(df, pct_burdened, rent_type='fmr', distribution=distribution)
     elif rent_type == 'Median':
         df = analysis.calculate_cost_estimate(df, pct_burdened, rent_type='rent50', distribution=distribution)

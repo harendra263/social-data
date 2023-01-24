@@ -21,10 +21,7 @@ def cross_features(df: pd.DataFrame) -> pd.DataFrame:
     for r in range(2, 3):
         combinations_list = list(itertools.combinations(cols, r))
         all_combinations += combinations_list
-    new_cols = []
-    for combo in all_combinations:
-        new_cols.append(cross(combo, df))
-
+    new_cols = [cross(combo, df) for combo in all_combinations]
     crossed_df = pd.DataFrame(new_cols)
     crossed_df = crossed_df.T
     crossed_df['Mean'] = crossed_df.mean(axis=1)
@@ -60,9 +57,9 @@ def prepare_analysis_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def normalize(df: pd.DataFrame) -> pd.DataFrame:
     scaler = pre.MaxAbsScaler()
-    df_scaled = pd.DataFrame(scaler.fit_transform(df), index=df.index, columns=df.columns)
-
-    return df_scaled
+    return pd.DataFrame(
+        scaler.fit_transform(df), index=df.index, columns=df.columns
+    )
 
 
 def normalize_column(df: pd.DataFrame, col: str) -> pd.DataFrame:
@@ -79,16 +76,12 @@ def normalize_percent(percent: float) -> float:
 def cross(columns: tuple, df: pd.DataFrame) -> pd.Series:
     columns = list(columns)
     new_col = '_X_'.join(columns)
-    new_series = pd.Series(df[columns].product(axis=1), name=new_col).abs()
-    return new_series
+    return pd.Series(df[columns].product(axis=1), name=new_col).abs()
 
 
 def priority_indicator(socioeconomic_index: float, policy_index: float, time_left: int = 1) -> float:
-    if time_left < 1:
-        # Handle 0 values
-        time_left = 1
-
-    return float(socioeconomic_index) * (1 - float(policy_index)) / math.sqrt(time_left)
+    time_left = max(time_left, 1)
+    return socioeconomic_index * (1 - policy_index) / math.sqrt(time_left)
 
 
 def rank_counties(df: pd.DataFrame, label: str) -> pd.DataFrame:
@@ -110,7 +103,7 @@ def rank_counties(df: pd.DataFrame, label: str) -> pd.DataFrame:
             lambda x: priority_indicator(x['Relative Risk'], x['Policy Value'], x['Countdown']), axis=1
         )
 
-    analysis_df.to_excel('Output/' + label + '_overall_vulnerability.xlsx')
+    analysis_df.to_excel(f'Output/{label}_overall_vulnerability.xlsx')
 
     return analysis_df
 
@@ -147,7 +140,7 @@ def cost_of_evictions(df, metro_areas, locations):
 
     pct_burdened = st.slider('Percent of Burdened Population to Support', 0, 100, value=50, step=1)
 
-    if rent_type == '' or rent_type == 'Fair Market':
+    if rent_type in ['', 'Fair Market']:
         df = calculate_cost_estimate(df, pct_burdened, rent_type='fmr', distribution=distribution)
     elif rent_type == 'Median':
         df = calculate_cost_estimate(df, pct_burdened, rent_type='rent50', distribution=distribution)

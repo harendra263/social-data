@@ -19,13 +19,11 @@ def get_from_json(path: str) -> pd.DataFrame:
 
 
 def get_from_excel(path: str, sheet_name: str = 'Sheet1') -> pd.DataFrame:
-    res = pd.read_excel(path, sheet_name=sheet_name)
-    return res
+    return pd.read_excel(path, sheet_name=sheet_name)
 
 
 def get_from_csv(path: str) -> pd.DataFrame:
-    res = pd.read_csv(path)
-    return res
+    return pd.read_csv(path)
 
 
 def get_http_data(url: str) -> pd.DataFrame:
@@ -44,7 +42,3 @@ def get_http_data(url: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-if __name__ == '__main__':
-    # df = get_http_data()
-    # print(df.head())
-    pass

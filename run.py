@@ -46,7 +46,7 @@ def run_shell() -> pd.DataFrame:
     task = input(
         'Analyze a single county (1), multiple counties (2), all the counties in a state (3), or a nation-wide analysis (4)? [default: 1]') \
         .strip()
-    if task == '1' or task == '':
+    if task in ['1', '']:
         res = input('Enter the county and state to analyze (ie: Jefferson County, Colorado):')
         res = res.strip().split(',')
         cost_of_evictions = input(
@@ -56,7 +56,7 @@ def run_shell() -> pd.DataFrame:
         state = res[1].strip().lower()
         df = queries.get_county_data(state, [county])
 
-        if cost_of_evictions == 'y' or cost_of_evictions == '':
+        if cost_of_evictions in ['y', '']:
             df = analysis.calculate_cost_estimate(df, rent_type='fmr')
 
         utils.output_table(df, 'Output/' + county.capitalize() + '.xlsx')
@@ -68,7 +68,7 @@ def run_shell() -> pd.DataFrame:
         df = queries.get_county_data(state, counties)
         cost_of_evictions = input(
             'Run an analysis to estimate the cost to avoid evictions? (Y/n) ')
-        if cost_of_evictions == 'y' or cost_of_evictions == '':
+        if cost_of_evictions in ['y', '']:
             df = analysis.calculate_cost_estimate(df, rent_type='fmr')
 
         utils.output_table(df, 'Output/' + state + '_selected_counties.xlsx')
@@ -80,7 +80,7 @@ def run_shell() -> pd.DataFrame:
         df = queries.get_county_data(state)
         cost_of_evictions = input(
             'Run an analysis to estimate the cost to avoid evictions? (Y/n) ')
-        if cost_of_evictions == 'y' or cost_of_evictions == '':
+        if cost_of_evictions in ['y', '']:
             df = analysis.calculate_cost_estimate(df, rent_type='fmr')
 
         utils.output_table(df, 'Output/' + state + '.xlsx')
@@ -100,7 +100,7 @@ def run_shell() -> pd.DataFrame:
         natl_df = pd.concat(frames)
         cost_of_evictions = input(
             'Run an analysis to estimate the cost to avoid evictions (Y/n) ')
-        if cost_of_evictions == 'y' or cost_of_evictions == '':
+        if cost_of_evictions in ['y', '']:
             df = analysis.calculate_cost_estimate(natl_df, rent_type='fmr')
 
         utils.output_table(natl_df, 'Output/US_national.xlsx')

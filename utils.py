@@ -10,8 +10,7 @@ def to_excel(df: pd.DataFrame):
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1')
     writer.save()
-    processed_data = output.getvalue()
-    return processed_data
+    return output.getvalue()
 
 
 def get_table_download_link(df: pd.DataFrame, file_name: str, text: str) -> str:
@@ -41,7 +40,7 @@ def make_geojson(geo_df: pd.DataFrame, features: list) -> dict:
             del feature["bbox"]
             feature["geometry"]["coordinates"] = [feature["geometry"]["coordinates"]]
             geojson["features"].append(feature)
-    elif 'Census Tract' not in geo_df.columns:
+    else:
         for i, row in geo_df.iterrows():
             feature = row['coordinates']['features'][0]
             props = {"name": row['County Name']}
@@ -65,8 +64,7 @@ def convert_coordinates(row) -> list:
             f['geometry']['coordinates'] = combined
         coords = f['geometry']['coordinates']
         for coord in coords:
-            for point in coord:
-                new_coords.append([round(point[0], 6), round(point[1], 6)])
+            new_coords.extend([round(point[0], 6), round(point[1], 6)] for point in coord)
         f['geometry']['coordinates'] = new_coords
     return row['coordinates']
 
@@ -88,19 +86,17 @@ def convert_geom(geo_df: pd.DataFrame, data_df: pd.DataFrame, map_features: list
     geo_df['geom'] = geo_df.apply(lambda row: row['geom'].buffer(0), axis=1)
     geo_df['coordinates'] = geo_df.apply(lambda row: gpd.GeoSeries(row['geom']).__geo_interface__, axis=1)
     geo_df['coordinates'] = geo_df.apply(lambda row: convert_coordinates(row), axis=1)
-    geojson = make_geojson(geo_df, map_features)
-    return geojson
+    return make_geojson(geo_df, map_features)
 
 
 def coord_extractor(input_geom):
     if (input_geom is None) or (input_geom is np.nan):
         return []
+    if input_geom.type[:len('multi')].lower() == 'multi':
+        full_coord_list = []
+        for geom_part in input_geom.geoms:
+            geom_part_2d_coords = [[coord[0], coord[1]] for coord in list(geom_part.coords)]
+            full_coord_list.append(geom_part_2d_coords)
     else:
-        if input_geom.type[:len('multi')].lower() == 'multi':
-            full_coord_list = []
-            for geom_part in input_geom.geoms:
-                geom_part_2d_coords = [[coord[0], coord[1]] for coord in list(geom_part.coords)]
-                full_coord_list.append(geom_part_2d_coords)
-        else:
-            full_coord_list = [[coord[0], coord[1]] for coord in list(input_geom.coords)]
-        return full_coord_list
+        full_coord_list = [[coord[0], coord[1]] for coord in list(input_geom.coords)]
+    return full_coord_list

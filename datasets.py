@@ -31,10 +31,7 @@ class DataSet(object):
         return print(self.data.describe())
 
     def unique_values(self, column: str):
-        uniques = list(self.data[column].unique())
-        # print(uniques)
-
-        return uniques
+        return list(self.data[column].unique())
 
     def drop_blank_feature_values(self, feature_columns: list):
         self.data = self.data.dropna(subset=feature_columns)
