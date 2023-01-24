@@ -30,7 +30,6 @@ def make_map(geo_df: pd.DataFrame, df: pd.DataFrame, map_feature: str, data_form
     if data_format == 'Per Capita':
         label = f"{map_feature} per capita"
         df[label] = df[map_feature] / df['Total Population']
-        pass
     elif data_format == 'Per Square Mile':
         label = f"{map_feature} per sqmi"
         df[label] = df[map_feature] / df['sqmi']
@@ -129,8 +128,7 @@ def make_correlation_plot(df: pd.DataFrame, feature_cols: list):
     A value of 0 means that the two features are unrelated. A higher value can be read as a stronger relationship 
     (either positive or negative) between the two features.
     ''')
-    avail_cols = list(df.columns)
-    avail_cols.sort()
+    avail_cols = sorted(df.columns)
     cols_to_compare = st.multiselect('Columns to consider', avail_cols, feature_cols)
     if len(cols_to_compare) > 2:
         df_corr = df[cols_to_compare].corr().stack().reset_index().rename(
@@ -203,12 +201,16 @@ def make_census_chart(df: pd.DataFrame, feature: str):
                     tooltip=['county_name', feature, "tract count"]) \
             .interactive()
     else:
-        bar = alt.Chart(df) \
-            .mark_bar() \
-            .encode(x='Census Tract',
-                    y=feature + ':Q',
-                    tooltip=['Census Tract', feature]) \
+        bar = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x='Census Tract',
+                y=f'{feature}:Q',
+                tooltip=['Census Tract', feature],
+            )
             .interactive()
+        )
     st.altair_chart(bar, use_container_width=True)
 
 
@@ -239,10 +241,17 @@ def make_scatter_plot_counties(df: pd.DataFrame, feature_1: str, feature_2: str,
 def make_scatter_plot_census_tracts(df: pd.DataFrame, feature_1: str, feature_2: str,
                                     scaling_feature: str = 'tot_population_census_2010'):
     scatter_df = df.reset_index(drop=True)[[feature_1, feature_2, 'Census Tract', scaling_feature]]
-    scatter = alt.Chart(scatter_df).mark_point() \
-        .encode(x=feature_1 + ':Q', y=feature_2 + ':Q',
-                tooltip=['Census Tract', scaling_feature, feature_1, feature_2],
-                size=scaling_feature).interactive()
+    scatter = (
+        alt.Chart(scatter_df)
+        .mark_point()
+        .encode(
+            x=f'{feature_1}:Q',
+            y=f'{feature_2}:Q',
+            tooltip=['Census Tract', scaling_feature, feature_1, feature_2],
+            size=scaling_feature,
+        )
+        .interactive()
+    )
     st.altair_chart(scatter, use_container_width=True)
 
 
@@ -294,19 +303,50 @@ def make_equity_census_map(geo_df: pd.DataFrame, df: pd.DataFrame, map_feature: 
         geo_df_copy.drop(list(set(geo_df_copy.columns) - set(keep_cols)), axis=1, inplace=True)
         if feat_type == 'numerical':
             tooltip = {
-                "html": "<b>Tract ID:</b> {" + str('name') + "} </br>" +
-                        "<b>" + str(map_feature) + ":</b> {" + str(map_feature) + "}% </br>"
+                "html": (
+                    (
+                        (
+                            (
+                                (
+                                    "<b>Tract ID:</b> {"
+                                    + 'name'
+                                    + "} </br>"
+                                    + "<b>"
+                                )
+                                + map_feature
+                            )
+                            + ":</b> {"
+                        )
+                        + map_feature
+                    )
+                    + "}% </br>"
+                )
             }
         else:
             tooltip = {
-                "html": "<b> {" + str(map_feature) + "} </b> </br>" +
-                        "<b>Tract ID:</b> {" + str('name') + "} </br>"
+                "html": (
+                    (
+                        (
+                            "<b> {"
+                            + map_feature
+                            + "} </b> </br>"
+                            + "<b>Tract ID:</b> {"
+                        )
+                        + 'name'
+                    )
+                    + "} </br>"
+                )
             }
 
     elif 'County Name' in set(geo_df_copy.columns):
         geo_df_copy.drop(['geom', 'County Name'], axis=1, inplace=True)
         tooltip = {
-            "html": "<b>County:</b> {name} </br>" + "<b>" + str(map_feature) + ":</b> {" + str(map_feature) + "}"
+            "html": "<b>County:</b> {name} </br>"
+            + "<b>"
+            + map_feature
+            + ":</b> {"
+            + map_feature
+            + "}"
         }
     if len(geo_df_copy['coordinates'][0][0][0]) > 0:
         view_state = pdk.ViewState(
@@ -380,13 +420,51 @@ def make_transport_census_map(geo_df: pd.DataFrame, df: pd.DataFrame, map_featur
         geo_df_copy.drop(list(set(geo_df_copy.columns) - set(keep_cols)), axis=1, inplace=True)
         if map_feature == 'Index Value':
             tooltip = {
-                "html": "<b>Tract ID:</b> {" + str('name') + "} </br>" +
-                        "<b>" + str(map_feature) + ":</b> {" + str(map_feature) + "} </br>"
+                "html": (
+                    (
+                        (
+                            (
+                                (
+                                    "<b>Tract ID:</b> {"
+                                    + 'name'
+                                    + "} </br>"
+                                    + "<b>"
+                                )
+                                + map_feature
+                            )
+                            + ":</b> {"
+                        )
+                        + map_feature
+                    )
+                    + "} </br>"
+                )
             }
         else:
             tooltip = {
-                "html": "<b>Tract ID:</b> {" + str('name') + "} </br>" +
-                        "<b>" + str(map_feature) + ":</b> {" + str(map_feature) + "}"+ queries.TABLE_UNITS[map_feature]+" </br>"
+                "html": (
+                    (
+                        (
+                            (
+                                (
+                                    (
+                                        (
+                                            "<b>Tract ID:</b> {"
+                                            + 'name'
+                                            + "} </br>"
+                                            + "<b>"
+                                        )
+                                        + map_feature
+                                    )
+                                    + ":</b> {"
+                                )
+                                + map_feature
+                            )
+                            + "}"
+                        )
+                        + queries.TABLE_UNITS[map_feature]
+                    )
+                    + " </br>"
+                )
             }
 
     if len(geo_df_copy['coordinates'][0][0][0]) > 0:
@@ -420,13 +498,6 @@ def make_transport_census_map(geo_df: pd.DataFrame, df: pd.DataFrame, map_featur
             "html": "<b>Description: </b>{route_long_name}</br>" +
                     "<b>Type: </b>{route_type_text}</br>"
         }
-        r = pdk.Deck(
-            layers=layers,
-            initial_view_state=view_state,
-            map_style=pdk.map_styles.LIGHT,
-            tooltip=tooltip
-        )
-
     else:
         polygon_layer = pdk.Layer(
             "PolygonLayer",
@@ -441,12 +512,12 @@ def make_transport_census_map(geo_df: pd.DataFrame, df: pd.DataFrame, map_featur
         )
         layers = [polygon_layer]
 
-        r = pdk.Deck(
-            layers=layers,
-            initial_view_state=view_state,
-            map_style=pdk.map_styles.LIGHT,
-            tooltip=tooltip
-        )
+    r = pdk.Deck(
+        layers=layers,
+        initial_view_state=view_state,
+        map_style=pdk.map_styles.LIGHT,
+        tooltip=tooltip
+    )
 
     st.pydeck_chart(r)
 
@@ -458,7 +529,7 @@ def make_equity_census_chart(df: pd.DataFrame, threshold: dict, average: dict, f
     baselines = pd.DataFrame([{"name": 'average', "value": average[feature]},
                               {"name": 'concentration threshold', "value": threshold[feature]}])
 
-    feature = feature + ' (%)'
+    feature += ' (%)'
     feat_type = 'category' if df[feature].dtype == 'object' else 'numerical'
     data_df = pd.DataFrame(df[[feature, 'Census Tract', 'county_name']])
 
@@ -474,15 +545,26 @@ def make_equity_census_chart(df: pd.DataFrame, threshold: dict, average: dict, f
                     tooltip=['county_name', feature, "tract count"]) \
             .interactive()
     else:
-        bar = alt.Chart(df) \
-            .mark_bar() \
-            .encode(x=alt.X('Census Tract:O', axis=alt.Axis(labels=False), title='Census Tract Distribution', sort='y'),
-                    y=alt.Y(feature + ':Q', title=feature),
-                    color=alt.Color('Census Tract',
-                                    # scale=alt.Scale(scheme='blues'),
-                                    legend=alt.Legend(orient='bottom')),
-                    tooltip=['Census Tract', feature]) \
+        bar = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X(
+                    'Census Tract:O',
+                    axis=alt.Axis(labels=False),
+                    title='Census Tract Distribution',
+                    sort='y',
+                ),
+                y=alt.Y(f'{feature}:Q', title=feature),
+                color=alt.Color(
+                    'Census Tract',
+                    # scale=alt.Scale(scheme='blues'),
+                    legend=alt.Legend(orient='bottom'),
+                ),
+                tooltip=['Census Tract', feature],
+            )
             .interactive()
+        )
 
         rules = alt.Chart(baselines).mark_rule().encode(
             y='value:Q'
@@ -517,12 +599,21 @@ def make_transport_census_chart(df: pd.DataFrame, average: dict, feature: str):
                     tooltip=['county_name', feature, "tract count"]) \
             .interactive()
     else:
-        bar = alt.Chart(df) \
-            .mark_bar() \
-            .encode(x=alt.X('Census Tract:O', axis=alt.Axis(labels=False), title='Census Tracts', sort='y'),
-                    y=alt.Y(feature + ':Q', title=feature),
-                    tooltip=['Census Tract', feature]) \
+        bar = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X(
+                    'Census Tract:O',
+                    axis=alt.Axis(labels=False),
+                    title='Census Tracts',
+                    sort='y',
+                ),
+                y=alt.Y(f'{feature}:Q', title=feature),
+                tooltip=['Census Tract', feature],
+            )
             .interactive()
+        )
 
         rules = alt.Chart(baselines).mark_rule().encode(
             y='value:Q'
@@ -553,13 +644,18 @@ def make_horizontal_bar_chart(average: dict, epc_average: dict, feature: str):
 def make_grouped_bar_chart(df: pd.DataFrame, id_var: str, features: list, features_name: str):
     df = df.melt([id_var], features, features_name)
 
-    bar = alt.Chart(df) \
-        .mark_bar() \
-        .encode(column=alt.Column(features_name + ':N'), x=alt.X(id_var + ':O'),
-                y=alt.Y('value' + ':Q'),
-                color=id_var + ':N',
-                tooltip=[id_var, 'value']) \
+    bar = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            column=alt.Column(f'{features_name}:N'),
+            x=alt.X(f'{id_var}:O'),
+            y=alt.Y('value' + ':Q'),
+            color=f'{id_var}:N',
+            tooltip=[id_var, 'value'],
+        )
         .interactive()
+    )
     st.altair_chart(bar, use_container_width=True)
 
 
@@ -578,24 +674,21 @@ def make_stacked(df: pd.DataFrame):
 def make_histogram(df: pd.DataFrame, feature: str):
     base = alt.Chart(df)
     hist = base.mark_bar().encode(
-        x=alt.X(feature + ':Q', bin=alt.BinParams()
-                ),
-        y='count()'
+        x=alt.X(f'{feature}:Q', bin=alt.BinParams()), y='count()'
     )
     median_line = base.mark_rule().encode(
-        x=alt.X('mean(' + feature + '):Q', title=feature),
-        size=alt.value(5)
+        x=alt.X(f'mean({feature}):Q', title=feature), size=alt.value(5)
     )
     st.altair_chart(hist + median_line, use_container_width=True)
 
 
 def make_simple_chart(df: pd.DataFrame, feature: str):
-    bar = alt.Chart(df.reset_index()) \
-        .mark_bar() \
-        .encode(x='index:O',
-                y=feature + ':Q',
-                tooltip=['index', feature]) \
+    bar = (
+        alt.Chart(df.reset_index())
+        .mark_bar()
+        .encode(x='index:O', y=f'{feature}:Q', tooltip=['index', feature])
         .interactive()
+    )
     st.altair_chart(bar, use_container_width=True)
 
 
@@ -623,9 +716,12 @@ def make_transit_layers(tract_df: pd.DataFrame, pickable: bool = True):
         NTM_shapes['path'] = NTM_shapes['geom'].apply(utils.coord_extractor)
         NTM_shapes.fillna("N/A", inplace=True)
 
-        route_colors = {}
-        for count, value in enumerate(NTM_shapes['route_type_text'].unique()):
-            route_colors[value] = COLOR_VALUES[count]
+        route_colors = {
+            value: COLOR_VALUES[count]
+            for count, value in enumerate(
+                NTM_shapes['route_type_text'].unique()
+            )
+        }
         NTM_shapes['color'] = NTM_shapes['route_type_text'].apply(lambda x: route_colors[x])
         NTM_shapes['alt_color'] = NTM_shapes['color'].apply(lambda x: "#%02x%02x%02x" % (x[0], x[1], x[2]))
 

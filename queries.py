@@ -189,23 +189,23 @@ CLIMATE_CENSUS_TABLES = [
 
 
 def init_engine():
-    engine = create_engine(
-        f'postgresql://{credentials.DB_USER}:{credentials.DB_PASSWORD}@{credentials.DB_HOST}:{credentials.DB_PORT}/{credentials.DB_NAME}')
-    return engine
+    return create_engine(
+        f'postgresql://{credentials.DB_USER}:{credentials.DB_PASSWORD}@{credentials.DB_HOST}:{credentials.DB_PORT}/{credentials.DB_NAME}'
+    )
 
 
 def init_connection():
-    if st.secrets:
-        conn = psycopg2.connect(**st.secrets["postgres"])
-    else:
-        conn = psycopg2.connect(
+    return (
+        psycopg2.connect(**st.secrets["postgres"])
+        if st.secrets
+        else psycopg2.connect(
             user=credentials.DB_USER,
             password=credentials.DB_PASSWORD,
             host=credentials.DB_HOST,
             port=credentials.DB_PORT,
-            dbname=credentials.DB_NAME
+            dbname=credentials.DB_NAME,
         )
-    return conn
+    )
 
 
 def write_table(df: pd.DataFrame, table: str):
@@ -216,7 +216,7 @@ def write_table(df: pd.DataFrame, table: str):
 def all_counties_query(where: str = None) -> pd.DataFrame:
     conn = init_connection()
     cur = conn.cursor()
-    query = f"SELECT DISTINCT county_name, state_name, county_id FROM id_index"
+    query = "SELECT DISTINCT county_name, state_name, county_id FROM id_index"
     if where:
         query += f" WHERE {where}"
     query += ";"
@@ -224,8 +224,7 @@ def all_counties_query(where: str = None) -> pd.DataFrame:
     colnames = [desc[0] for desc in cur.description]
     results = cur.fetchall()
     conn.commit()
-    df = pd.DataFrame(results, columns=colnames)
-    return df
+    return pd.DataFrame(results, columns=colnames)
 
 
 def table_names_query() -> list:
@@ -237,8 +236,7 @@ def table_names_query() -> list:
     results = cur.fetchall()
     conn.commit()
 
-    res = [_[0] for _ in results]
-    return res
+    return [_[0] for _ in results]
 
 
 @st.experimental_memo(ttl=1200)
@@ -256,8 +254,7 @@ def read_table(table: str, columns: list = None, where: str = None, order_by: st
         if order_by is not None:
             query += f"ORDER BY {order_by} {order}"
     else:
-        if fred:
-            query = f"""SELECT {table}.* FROM {table},
+        query = f"""SELECT {table}.* FROM {table},
                     (SELECT county_id,max(date) as date
                          FROM {table}
                          GROUP BY county_id) max_county
@@ -265,8 +262,7 @@ def read_table(table: str, columns: list = None, where: str = None, order_by: st
                       AND {table}.county_id=max_county.county_id
                       AND {table}.date=max_county.date"""
     query += ';'
-    df = pd.read_sql(query, con=conn)
-    return df
+    return pd.read_sql(query, con=conn)
 
 
 @st.experimental_memo(ttl=1200)
@@ -333,11 +329,8 @@ def latest_data_single_table(table_name: str, require_counties: bool = True) -> 
     conn = init_connection()
     cur = conn.cursor()
     cur.execute(
-        'SELECT DISTINCT ON (county_id) '
-        'county_id, date AS "{} Date", value AS "{} ({})" '
-        'FROM {} '
-        'ORDER BY county_id , "date" DESC'.format(TABLE_HEADERS[table_name], TABLE_HEADERS[table_name],
-                                                  TABLE_UNITS[table_name], table_name))
+        f'SELECT DISTINCT ON (county_id) county_id, date AS "{TABLE_HEADERS[table_name]} Date", value AS "{TABLE_HEADERS[table_name]} ({TABLE_UNITS[table_name]})" FROM {table_name} ORDER BY county_id , "date" DESC'
+    )
     results = cur.fetchall()
     conn.commit()
 
@@ -371,20 +364,17 @@ def fred_query(counties_str: str) -> pd.DataFrame:
 @st.experimental_memo(ttl=1200)
 def get_all_county_data(state: str, counties: list) -> pd.DataFrame:
     if counties:
-        counties_str = "(" + ",".join(["'" + str(_) + "'" for _ in counties]) + ")"
+        counties_str = "(" + ",".join([f"'{str(_)}'" for _ in counties]) + ")"
         demo_df = read_table('county_demographics', where=f"county_id in {counties_str}")
         fred_df = fred_query(counties_str)
-        demo_df = demo_df.merge(fred_df, on='county_id', how='inner', suffixes=('', '_DROP')).filter(
-            regex='^(?!.*_DROP)')
-
     else:
         demo_df = read_table('county_demographics', where=f"state_name='{state}';")
         counties = all_counties_query(f"state_name='{state}'")
         county_ids = counties['county_id'].to_list()
-        counties_str = "(" + ",".join(["'" + str(_) + "'" for _ in county_ids]) + ")"
+        counties_str = "(" + ",".join([f"'{str(_)}'" for _ in county_ids]) + ")"
         fred_df = fred_query(counties_str=counties_str)
-        demo_df = demo_df.merge(fred_df, on='county_id', how='inner', suffixes=('', '_DROP')).filter(
-            regex='^(?!.*_DROP)')
+    demo_df = demo_df.merge(fred_df, on='county_id', how='inner', suffixes=('', '_DROP')).filter(
+        regex='^(?!.*_DROP)')
 
     demo_df['Non-White Population'] = (demo_df['black'] + demo_df['ameri_es'] + demo_df['asian'] + demo_df[
         'hawn_pi'] + demo_df['hispanic'] + demo_df['other'] + demo_df['mult_race'])
@@ -421,24 +411,21 @@ def get_all_county_data(state: str, counties: list) -> pd.DataFrame:
 def static_data_single_table(table_name: str, columns: list) -> pd.DataFrame:
     conn = init_connection()
     cur = conn.cursor()
-    str_columns = ', '.join('"{}"'.format(c) for c in columns)
-    query = 'SELECT county_id, {} FROM {} '.format(str_columns, table_name)
+    str_columns = ', '.join(f'"{c}"' for c in columns)
+    query = f'SELECT county_id, {str_columns} FROM {table_name} '
     cur.execute(query)
     results = cur.fetchall()
     conn.commit()
 
     colnames = [desc[0] for desc in cur.description]
-    df = pd.DataFrame(results, columns=colnames)
-    # counties_df = all_counties_query()
-    # df = counties_df.merge(df, how='outer')
-    return df
+    return pd.DataFrame(results, columns=colnames)
 
 
 def generic_select_query(table_name: str, columns: list, where: str = None) -> pd.DataFrame:
     conn = init_connection()
     cur = conn.cursor()
-    str_columns = ', '.join('"{}"'.format(c) for c in columns)
-    query = 'SELECT {} FROM {} '.format(str_columns, table_name)
+    str_columns = ', '.join(f'"{c}"' for c in columns)
+    query = f'SELECT {str_columns} FROM {table_name} '
     if where is not None:
         query += f'WHERE {where}'
     cur.execute(query)
@@ -446,15 +433,14 @@ def generic_select_query(table_name: str, columns: list, where: str = None) -> p
     conn.commit()
 
     colnames = [desc[0] for desc in cur.description]
-    df = pd.DataFrame(results, columns=colnames)
-    return df
+    return pd.DataFrame(results, columns=colnames)
 
 
 @st.experimental_memo(ttl=1200)
 def get_county_geoms(counties_list: list, state: str) -> pd.DataFrame:
     conn = init_connection()
     counties_list = [_.replace("'", "''") for _ in counties_list]
-    counties = "(" + ",".join(["'" + str(_) + "'" for _ in counties_list]) + ")"
+    counties = "(" + ",".join([f"'{str(_)}'" for _ in counties_list]) + ")"
     cur = conn.cursor()
     query = f"SELECT * FROM county_geoms WHERE state_name='{state}' AND county_name in {counties};"
     cur.execute(query)
@@ -479,7 +465,7 @@ def get_county_geoms(counties_list: list, state: str) -> pd.DataFrame:
 @st.experimental_memo(ttl=1200)
 def get_county_geoms_by_id(counties_list: list) -> pd.DataFrame:
     conn = init_connection()
-    counties = "(" + ",".join(["'" + str(_) + "'" for _ in counties_list]) + ")"
+    counties = "(" + ",".join([f"'{str(_)}'" for _ in counties_list]) + ")"
     cur = conn.cursor()
     query = f"SELECT * FROM county_geoms WHERE county_id in {counties};"
     cur.execute(query)
@@ -536,26 +522,25 @@ def census_tracts_geom_query(counties, state) -> pd.DataFrame:
 @st.experimental_memo(ttl=1200)
 def get_transit_stops_geoms(columns: list = [], where: str = None) -> pd.DataFrame:
     conn = init_connection()
-    if len(columns) > 0:
+    if columns:
         cols = ', '.join(columns)
         query = f"SELECT {cols} FROM ntm_stops"
     else:
-        query = f"""SELECT * FROM ntm_stops"""
+        query = """SELECT * FROM ntm_stops"""
     if where is not None:
         query += f" WHERE {where}"
     query += ';'
-    df = gpd.read_postgis(query, conn)
-    return df
+    return gpd.read_postgis(query, conn)
 
 
 @st.experimental_memo(ttl=1200)
 def get_transit_shapes_geoms(columns: list = [], where: str = None) -> pd.DataFrame:
     conn = init_connection()
-    if len(columns) > 0:
+    if columns:
         cols = ', '.join(columns)
         query = f"SELECT {cols} FROM ntm_shapes"
     else:
-        query = f"""SELECT * FROM ntm_shapes"""
+        query = """SELECT * FROM ntm_shapes"""
     if where is not None:
         query += f" WHERE {where}"
     query += ';'
@@ -612,7 +597,7 @@ def load_all_data() -> pd.DataFrame:
     if os.path.exists("Output/all_tables.xlsx"):
         try:
             res = input('Previous data found. Use data from local `all_tables.xlsx`? [y/N]')
-            if res.lower() == 'y' or res.lower() == 'yes':
+            if res.lower() in ['y', 'yes']:
                 df = pd.read_excel('Output/all_tables.xlsx')
             else:
                 df = get_all_county_data()
@@ -771,8 +756,8 @@ def clean_climate_data(data: pd.DataFrame, epc: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_equity_geographies(epc: pd.DataFrame, coeff: float) -> pd.DataFrame:
-    concentration_thresholds = dict()
-    averages = dict()
+    concentration_thresholds = {}
+    averages = {}
 
     for header in (EQUITY_CENSUS_POC_LOW_INCOME + EQUITY_CENSUS_REMAINING_HEADERS):
         averages[header+ ' (%)'] = epc[header + ' (%)'].mean()
@@ -781,11 +766,13 @@ def get_equity_geographies(epc: pd.DataFrame, coeff: float) -> pd.DataFrame:
         epc[header + '_check'] = epc[header + '_check'].astype(int)
 
     epc['criteria_A'] = epc[[x + '_check' for x in EQUITY_CENSUS_POC_LOW_INCOME]].sum(axis=1, numeric_only=True)
-    epc['Criteria A'] = epc['criteria_A'].apply(lambda x: bool(x == 2))
+    epc['Criteria A'] = epc['criteria_A'].apply(lambda x: x == 2)
 
     epc['criteria_B'] = epc[[x + '_check' for x in EQUITY_CENSUS_REMAINING_HEADERS]].sum(axis=1, numeric_only=True)
     temp = epc['200% Below Poverty Level (%)'].apply(lambda x: x > concentration_thresholds['200% Below Poverty Level (%)'])
-    epc['Criteria B'] = (epc['criteria_B'].apply(lambda x: bool(x >= 3)) + temp.astype(int)) == 2
+    epc['Criteria B'] = (
+        epc['criteria_B'].apply(lambda x: x >= 3) + temp.astype(int) == 2
+    )
 
     df = epc
 
@@ -799,10 +786,12 @@ def get_equity_geographies(epc: pd.DataFrame, coeff: float) -> pd.DataFrame:
     df['Category'] = (df['Criteria A'].apply(lambda x: bool(x)) | df['Criteria B'].apply(lambda x: bool(x)))
     df['Category'] = df['Category'].apply(lambda x: 'Equity Geography' if x is True else 'Other')
 
-    epc_averages = {}
-    for header in (EQUITY_CENSUS_POC_LOW_INCOME + EQUITY_CENSUS_REMAINING_HEADERS):
-        epc_averages[header+ ' (%)'] = epc[header + ' (%)'].mean()
-
+    epc_averages = {
+        header + ' (%)': epc[header + ' (%)'].mean()
+        for header in (
+            EQUITY_CENSUS_POC_LOW_INCOME + EQUITY_CENSUS_REMAINING_HEADERS
+        )
+    }
     return epc, df, concentration_thresholds, averages, epc_averages
 
 
@@ -1013,31 +1002,29 @@ def get_national_county_data() -> pd.DataFrame:
     for s in STATES:
         tmp_df = get_county_data(s)
         frames.append(tmp_df)
-    df = pd.concat(frames)
-    return df
+    return pd.concat(frames)
 
 
 @st.experimental_memo(ttl=3600)
 def get_national_county_geom_data(counties: list) -> pd.DataFrame:
     frames = []
-    for c in counties:
+    for _ in counties:
         tmp_df = get_county_geoms()
         frames.append(tmp_df)
-    df = pd.concat(frames)
-    return df
+    return pd.concat(frames)
 
 
 def test_new_counties():
     conn = init_connection()
     cur = conn.cursor()
-    query = f"SELECT * FROM esri_counties;"
+    query = "SELECT * FROM esri_counties;"
     cur.execute(query)
     results = cur.fetchall()
     conn.commit()
     colnames = [desc[0] for desc in cur.description]
     esri_df = pd.DataFrame(results, columns=colnames)
 
-    query = f"SELECT * FROM id_index;"
+    query = "SELECT * FROM id_index;"
     cur.execute(query)
     results = cur.fetchall()
     conn.commit()

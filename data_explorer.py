@@ -41,20 +41,30 @@ def county_data_explorer():
         st.write('''### View Feature''')
         temp = df.copy()
         temp.reset_index(inplace=True)
-        feature_labels = list(
-            set(temp.columns) - {'County Name', 'State', 'county_id', 'state_id', 'pop10_sqmi', 'pop2010','fips','cnty_fips','state_fips'})
-        feature_labels.sort()
+        feature_labels = sorted(
+            set(temp.columns)
+            - {
+                'County Name',
+                'State',
+                'county_id',
+                'state_id',
+                'pop10_sqmi',
+                'pop2010',
+                'fips',
+                'cnty_fips',
+                'state_fips',
+            }
+        )
         single_feature = st.selectbox('Feature', feature_labels, 0)
 
         visualization.make_chart(temp, single_feature, st.session_state.data_format)
         counties = temp['County Name'].to_list()
         if task != 'National':
             geo_df = queries.get_county_geoms(counties, state)
-            visualization.make_map(geo_df, temp, single_feature, st.session_state.data_format)
         else:
             county_ids = temp['county_id'].to_list()
             geo_df = queries.get_county_geoms_by_id(county_ids)
-            visualization.make_map(geo_df, temp, single_feature, st.session_state.data_format)
+        visualization.make_map(geo_df, temp, single_feature, st.session_state.data_format)
         st.write('''
             ### Compare Features
             Select two features to compare on the X and Y axes. Only numerical data can be compared.
@@ -82,7 +92,7 @@ def census_data_explorer():
     tables = [_.strip().lower() for _ in tables]
     tables.sort()
 
-    if len(tables) > 0 and len(counties) > 0:
+    if tables and len(counties) > 0:
         if 'All' in counties:
             df = queries.latest_data_census_tracts(state, county_list, tables)
         else:
@@ -102,10 +112,20 @@ def census_data_explorer():
             df = df.loc[:, ~df.columns.duplicated()]
             df['County Name'] = df['county_name']
         df.set_index(['State', 'County Name'], drop=True, inplace=True)
-        feature_labels = list(
-            set(df.columns) - {'County Name', 'county_id', 'index', 'county_name', 'Census Tract', 'geom',
-                               'state_id', 'state_name', 'tract'})
-        feature_labels.sort()
+        feature_labels = sorted(
+            set(df.columns)
+            - {
+                'County Name',
+                'county_id',
+                'index',
+                'county_name',
+                'Census Tract',
+                'geom',
+                'state_id',
+                'state_name',
+                'tract',
+            }
+        )
         st.write('''
                 ### View Feature
                 Select a feature to view for each county
@@ -134,8 +154,5 @@ def census_data_explorer():
                 visualization.make_scatter_plot_census_tracts(df, feature_1, feature_2, scaling_feature)
 
         df.drop(list(set(df.columns) - set(feature_labels)), axis=1, inplace=True)
-        display_columns = []
-        for col in df.columns:
-            display_columns.append(col)
-        display_columns.sort()
+        display_columns = sorted(df.columns)
         visualization.make_correlation_plot(df, display_columns)

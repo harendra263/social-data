@@ -7,9 +7,9 @@ import credentials
 
 
 def init_engine():
-    engine = create_engine(
-        f'postgresql://{credentials.DB_USER}:{credentials.DB_PASSWORD}@{credentials.DB_HOST}:{credentials.DB_PORT}/{credentials.DB_NAME}')
-    return engine
+    return create_engine(
+        f'postgresql://{credentials.DB_USER}:{credentials.DB_PASSWORD}@{credentials.DB_HOST}:{credentials.DB_PORT}/{credentials.DB_NAME}'
+    )
 
 
 def fix_chmura_counties():
@@ -64,9 +64,27 @@ FRED_TABLES = [
 def update_FRED():
     engine = init_engine()
     ch_df = queries.read_table('chmura_economic_vulnerability_index')
-    keep_cols = {'date', 'value', 'fips', 'state_name', 'county_name', 'rent50_0', 'rent50_1',
-                 'rent50_2', 'rent50_3', 'rent50_4', 'pop2017', 'hu2017', 'fmr_0', 'fmr_1', 'fmr_2',
-                 'fmr_3', 'fmr_4', 'pop2017', 'fmr_pct_chg', 'fmr_dollar_chg'}
+    keep_cols = {
+        'date',
+        'value',
+        'fips',
+        'state_name',
+        'county_name',
+        'rent50_0',
+        'rent50_1',
+        'rent50_2',
+        'rent50_3',
+        'rent50_4',
+        'hu2017',
+        'fmr_0',
+        'fmr_1',
+        'fmr_2',
+        'fmr_3',
+        'fmr_4',
+        'pop2017',
+        'fmr_pct_chg',
+        'fmr_dollar_chg',
+    }
     big_df = pd.DataFrame()
     frames = []
     for table in FRED_TABLES:
@@ -121,4 +139,3 @@ if __name__ == '__main__':
     # populate_table('temp/new_ntm_stops.csv', 'ntm_stops_new')
     # update_FRED()
     map_ntm()
-    pass
